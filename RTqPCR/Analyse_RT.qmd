@@ -1,0 +1,133 @@
+---
+title: "Data RTqPCR Théo"
+format : html
+date : 2025.03.03
+author: Pierre Osteil
+editor: visual
+warning: FALSE
+toc: true
+---
+
+# Importer les data
+```{r}
+install_if_needed <- function(package) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+}
+
+install_if_needed("readxl")
+install_if_needed("tidyverse")
+install_if_needed("ggpubr")
+
+library(readxl)
+library(tidyverse)
+library(ggpubr)
+
+files_list <- list.files("./data/")
+
+data <- data.frame()
+
+for (i in 1:length(files_list)) {
+
+    temp <- read_excel(paste0("./data/", files_list[i])) |> filter(!(Condition == "Water"))
+    data <- rbind(data, temp)
+}
+
+variab_names <- colnames(data)
+colnames(data)<- c("Date", "Puit", "Lignée", "Tri", "Condition", "Gène", "Ct", 
+"Tm1", "Tm2")
+
+head(data)
+dim(data)
+class(data)
+```
+# filter data
+
+```{r}
+data_filt <- data |> 
+    filter(Ct <= 35 & Condition != "None")
+
+```
+
+# Calcul 2ddCt
+## calcul des médiane
+
+```{r}
+
+data_mediane <- data_filt |> 
+        group_by(Date, Lignée, Tri, Condition, Gène) |> 
+        mutate(medCt = median(Ct))
+
+head(data_mediane)
+
+```
+
+## Extraire les gènes de ménage
+On vérifie que les GDM sont bien corrélés et on en choisit un. 
+```{r}
+GDM <- c("Arbp", "Rps17")
+
+GDM_data <- data_mediane |> filter(Gène %in% GDM)
+
+ggviolin(GDM_data, x = "Gène", y = "Ct", add = "boxplot")+
+      geom_line(aes(group =  interaction(Lignée, Tri, Condition)), color = "black", size = 0.1)
+
+GDM_Arbp <- data_mediane |> filter(Gène == "Arbp") |> 
+    ungroup() |>
+    select(Date, Tri, Lignée, Condition, medCt) |>
+    distinct()
+
+colnames(GDM_Arbp)[colnames(GDM_Arbp) == "medCt"] <- "medCt_GDM"
+head(GDM_Arbp)
+```
+
+On ajoute les données de Arbp qui semble être le meilleur: moins de variabilité et Ct plus faible
+```{r}
+
+data_med_GDM <- inner_join(data_mediane, GDM_Arbp, by = c("Date", "Tri", "Lignée", "Condition"))
+head(data_med_GDM)
+colnames(data_med_GDM)
+
+```
+
+## calcul des dCt et des p.values
+
+```{r}
+# calculate dCt and SEM
+data_dCt <- data_med_GDM |> 
+        mutate(dCt = 2^(-(medCt - medCt_GDM))) |>
+        group_by(Gène, Tri, Condition, Lignée) |>
+        mutate(moy_dCt = mean(dCt), dCt_error = sd(dCt))
+
+head(data_dCt)
+dim(data_dCt)
+```
+
+
+# plot
+```{r, fig.width = 20, fig.height = 30}
+data_dCt$Condition_tri <- paste0(data_dCt$Condition, "_", data_dCt$Tri)
+
+# trier les échantillons désirés
+data_dCt_toplot <- data_dCt |> 
+    filter(!(Gène %in% c(GDM, "Cer1", "Cerberus"))) |>
+    filter(Condition_tri %in% c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa")) |> 
+    distinct(Condition_tri, Gène, Lignée, Date, .keep_all= T)
+
+
+# comparaisons que l'on veut plotter
+comparisons <- list(c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa"),
+                    c("(-AMPc +ActivinA)_PDGFRa", "(+AMPc +ActivinA)_PDGFRa"))
+ 
+p1 <- ggboxplot(data_dCt_toplot, x = "Condition_tri", y = "dCt", fill = "Condition_tri", add= c("mean_sd", "jitter"))+ 
+  stat_compare_means(comparisons = comparisons, method = "t.test", )+
+  facet_wrap("Gène", scales = "free") + 
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+p1
+ggsave("plot_dCt.pdf", p1, width = 15, height = 20)
+
+
+#aes(label = after_stat(p.signif))
+```

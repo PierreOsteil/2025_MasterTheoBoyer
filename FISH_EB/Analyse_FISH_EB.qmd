@@ -1,0 +1,55 @@
+
+
+
+# load packages
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+# load data
+```{r}
+pre_channel <- read.csv("data/_processed-04_C1.txt", sep="\t", h = T)
+fish1 <- read.csv("data/_processed-04_C2.txt", sep="\t", h = T)
+fish2 <- read.csv("data/_processed-04_C3.txt", sep="\t", h = T)
+head(pre_channel)
+summary(pre_channel$Y)
+```
+
+
+# calculate distance from center
+
+```{r}
+Ycenter <- 65
+Xcenter <- 62
+
+
+pre_channel$distance <- sqrt((pre_channel$X - Xcenter)^2 + (pre_channel$Y - Ycenter)^2)
+fish1$distance <- sqrt((fish1$X - Xcenter)^2 + (fish1$Y - Ycenter)^2)
+fish2$distance <- sqrt((fish2$X - Xcenter)^2 + (fish2$Y - Ycenter)^2)
+
+pre_channel$Origin <- "Pre-Channel"
+fish1$Origin <- "Fish1"
+fish2$Origin <- "Fish2"
+
+
+head(pre_channel)
+
+all_fish <- rbind.data.frame(pre_channel, fish1, fish2)
+
+
+```
+
+# plot
+```{r}
+
+gghistogram(all_fish, x = "distance", color = "Origin", fill = "Origin", add_density = TRUE)
+
+ggsave("all_fish_hist.png", width = 8, height = 6)
+
+
+ggdensity(all_fish, x = "distance", color = "Origin", fill = "Origin")
+ggsave("all_fish_density.png", width = 8, height = 6)
+
+```

@@ -1,0 +1,8 @@
+*.czi
+FISH_EB/data/
+*.pdf
+*.html
+*.png
+RTqPCR/Analyse_RT_files/
+RTqPCR/data/
+*.odt
