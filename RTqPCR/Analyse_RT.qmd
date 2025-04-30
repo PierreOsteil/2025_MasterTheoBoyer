@@ -24,13 +24,13 @@ library(readxl)
 library(tidyverse)
 library(ggpubr)
 
-files_list <- list.files("./data/")
+files_list <- list.files("./RTqPCR/data/")
 
 data <- data.frame()
 
 for (i in 1:length(files_list)) {
 
-    temp <- read_excel(paste0("./data/", files_list[i])) |> filter(!(Condition == "Water"))
+    temp <- read_excel(paste0("./RTqPCR/data/", files_list[i])) |> filter(!(Condition == "Water"))
     data <- rbind(data, temp)
 }
 
@@ -115,13 +115,18 @@ data_dCt_toplot <- data_dCt |>
     filter(Condition_tri %in% c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa")) |> 
     distinct(Condition_tri, Gène, Lignée, Date, .keep_all= T)
 
+FC <- data_dCt_toplot |> 
+  group_by(Gène, Condition_tri) |> 
+  summarise(moy_ech = mean(moy_dCt)) |> 
+  mutate(FC = moy_ech[1]/moy_ech[2]) |>
+  ungroup() 
+FC
 
 # comparaisons que l'on veut plotter
-comparisons <- list(c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa"),
-                    c("(-AMPc +ActivinA)_PDGFRa", "(+AMPc +ActivinA)_PDGFRa"))
+comparisons <- list(c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa"))
  
-p1 <- ggboxplot(data_dCt_toplot, x = "Condition_tri", y = "dCt", fill = "Condition_tri", add= c("mean_sd", "jitter"))+ 
-  stat_compare_means(comparisons = comparisons, method = "t.test", )+
+p1 <- ggboxplot(data_dCt_toplot, x = "Condition_tri", y = "dCt", fill = "Condition_tri", add= c("jitter"))+ 
+  stat_compare_means(comparisons = comparisons, method = "t.test", label = "mean_diff")+
   facet_wrap("Gène", scales = "free") + 
   theme_bw()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
