@@ -94,7 +94,7 @@ colnames(data_med_GDM)
 ## calcul des dCt et des p.values
 
 ```{r}
-# calculate dCt and SEM
+# calculer dCt et ecart type
 data_dCt <- data_med_GDM |> 
         mutate(dCt = 2^(-(medCt - medCt_GDM))) |>
         group_by(Gène, Tri, Condition, Lignée) |>
@@ -115,6 +115,8 @@ data_dCt_toplot <- data_dCt |>
     filter(Condition_tri %in% c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa")) |> 
     distinct(Condition_tri, Gène, Lignée, Date, .keep_all= T)
 
+# calcule les Fold change entre deux conditionMessage
+# le tableau "data_dCt_toplot" doit être établi avec seulement deux "Conditio_tri" pour que le FC soit bien calculé. 
 FC <- data_dCt_toplot |> 
   group_by(Gène, Condition_tri) |> 
   summarise(moy_ech = mean(moy_dCt)) |> 
@@ -123,6 +125,7 @@ FC <- data_dCt_toplot |>
 FC
 
 # comparaisons que l'on veut plotter
+# On peut ajouter autant de "Condition_tri" que l'on le souhaite 
 comparisons <- list(c("(-AMPc +ActivinA)_PECAM", "(-AMPc +ActivinA)_PDGFRa"))
  
 p1 <- ggboxplot(data_dCt_toplot, x = "Condition_tri", y = "dCt", fill = "Condition_tri", add= c("jitter"))+ 
