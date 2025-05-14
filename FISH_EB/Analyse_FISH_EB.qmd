@@ -10,20 +10,26 @@ library(ggpubr)
 
 # load data
 ```{r}
-pre_channel <- read.csv("data/_processed-04_C1.txt", sep="\t", h = T)
-fish1 <- read.csv("data/_processed-04_C2.txt", sep="\t", h = T)
-fish2 <- read.csv("data/_processed-04_C3.txt", sep="\t", h = T)
+path <- "FISH_EB/data/"
+imageName <- "_processed-04-1.czi" #add -1 if you use the line "Make Substack"
+
+
+
+pre_channel <- read.csv(paste0(path, imageName, "_C1.txt"), sep="\t", h = T)
+fish1 <- read.csv(paste0(path, imageName, "_C2.txt"), sep="\t", h = T) |> filter(Area >= 0.1)
+fish2 <- read.csv(paste0(path, imageName, "_C3.txt"), sep="\t", h = T) |> filter(Area >= 0.1)
+dapi  <- read.csv(paste0(path, imageName, "_C4.txt"), sep="\t", h = T)
+
 head(pre_channel)
-summary(pre_channel$Y)
+summary(dapi$Y)
 ```
 
 
 # calculate distance from center
 
 ```{r}
-Ycenter <- 65
-Xcenter <- 62
-
+Ycenter <- mean(dapi$Y)
+Xcenter <- mean(dapi$X)
 
 pre_channel$distance <- sqrt((pre_channel$X - Xcenter)^2 + (pre_channel$Y - Ycenter)^2)
 fish1$distance <- sqrt((fish1$X - Xcenter)^2 + (fish1$Y - Ycenter)^2)
@@ -33,6 +39,8 @@ pre_channel$Origin <- "Pre-Channel"
 fish1$Origin <- "Fish1"
 fish2$Origin <- "Fish2"
 
+sum(fish1$Area)
+sum(fish2$Area)
 
 head(pre_channel)
 
