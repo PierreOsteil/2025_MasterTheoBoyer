@@ -1,6 +1,6 @@
 // prep the measurments
 run("Set Measurements...", "area mean min centroid center stack redirect=None decimal=3");
-
+threshFISH = 1300;
 
 // make a substack and split channels
 run("Make Substack...", "channels=1-4 slices=100-200"); // if you need to subset your EB
@@ -11,7 +11,7 @@ run("Split Channels");
 // Lefty1 channel (Channel 3)
 selectImage("C3-"+imgName);
 run("Subtract Background...", "rolling=10 stack");
-setThreshold(400, 65535, "raw"); // treshshold at 400 for Lefty1
+setThreshold(threshFISH, 65535, "raw"); // treshshold at 400 for Lefty1
 run("Convert to Mask", "background=Dark create");
 run("Analyze Particles...", "size=10 pixel clear add stack");
 run("Select All");
@@ -21,7 +21,7 @@ saveAs("Results", "C:/Users/piosteil/Desktop/Work/4-All_git/2025_MasterTheoBoyer
 //Cer1 channel (Channel 2)
 selectImage("C2-"+imgName);
 run("Subtract Background...", "rolling=10 stack");
-setThreshold(400, 65535, "raw"); // treshshold at 400 for Cer1
+setThreshold(threshFISH, 65535, "raw"); // treshshold at 400 for Cer1
 run("Convert to Mask", "background=Dark create");
 run("Analyze Particles...", "size=10 pixel clear add stack");
 run("Select All");

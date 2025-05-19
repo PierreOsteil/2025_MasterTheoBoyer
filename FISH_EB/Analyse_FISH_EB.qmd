@@ -11,23 +11,18 @@ library(ggpubr)
 # load data
 ```{r}
 path <- "FISH_EB/data/"
-imageName <- "_processed-04-1.czi" #add -1 if you use the line "Make Substack"
 
+imageNames <- list.files("FISH_EB/Images")
+#imageName <- "20250425-Cer1546-Lefty1488-GATA6cy5-(-AMPc+50ngActA)-03.czi" #add -1 if you use the line "Make Substack"
 
+all_fish <- data.frame()
 
-pre_channel <- read.csv(paste0(path, imageName, "_C1.txt"), sep="\t", h = T)
-fish1 <- read.csv(paste0(path, imageName, "_C2.txt"), sep="\t", h = T) |> filter(Area >= 0.1)
-fish2 <- read.csv(paste0(path, imageName, "_C3.txt"), sep="\t", h = T) |> filter(Area >= 0.1)
-dapi  <- read.csv(paste0(path, imageName, "_C4.txt"), sep="\t", h = T)
+for (i in imageNames) {
+pre_channel <- read.csv(paste0(path, i, "_C1.txt"), sep="\t", h = T) |> filter(Area >= 0.1) |> mutate(ImageName = i)
+fish1 <- read.csv(paste0(path, i,"_C2.txt"), sep="\t", h = T) |> filter(Area >= 0.1) |> mutate(ImageName = i)
+fish2 <- read.csv(paste0(path, i,"_C3.txt"), sep="\t", h = T) |> filter(Area >= 0.1) |> mutate(ImageName = i)
+dapi  <- read.csv(paste0(path, i,"_C4.txt"), sep="\t", h = T) |> filter(Area >= 0.1) |> mutate(ImageName = i)
 
-head(pre_channel)
-summary(dapi$Y)
-```
-
-
-# calculate distance from center
-
-```{r}
 Ycenter <- mean(dapi$Y)
 Xcenter <- mean(dapi$X)
 
@@ -39,25 +34,40 @@ pre_channel$Origin <- "Pre-Channel"
 fish1$Origin <- "Fish1"
 fish2$Origin <- "Fish2"
 
-sum(fish1$Area)
-sum(fish2$Area)
+all_fish <- rbind.data.frame(all_fish, pre_channel, fish1, fish2)
 
+}
 head(pre_channel)
-
-all_fish <- rbind.data.frame(pre_channel, fish1, fish2)
-
-
+summary(dapi$Y)
 ```
+
 
 # plot
 ```{r}
-
-gghistogram(all_fish, x = "distance", color = "Origin", fill = "Origin", add_density = TRUE)
-
-ggsave("all_fish_hist.png", width = 8, height = 6)
+library(patchwork)
 
 
-ggdensity(all_fish, x = "distance", color = "Origin", fill = "Origin")
-ggsave("all_fish_density.png", width = 8, height = 6)
+p1 <- gghistogram(all_fish |> filter(!(Origin == "Pre-Channel")), 
+    x = "distance", 
+    color = "Origin", 
+    fill = "Origin", 
+    facet.by = "ImageName", 
+    facet.wrap = TRUE, 
+    ncol = length(unique(all_fish$ImageName)), 
+    add_density = TRUE, 
+    bins = 100)
+
+p2 <- gghistogram(all_fish |> filter(Origin == "Pre-Channel"), 
+    x = "distance", 
+    color = "Origin", 
+    fill = "Origin", 
+    facet.by = "ImageName", 
+    facet.wrap = TRUE, 
+    ncol = length(unique(all_fish$ImageName)), 
+    add_density = TRUE, 
+    bins = 100)
+
+p2 / p1
+ggsave("FISH_EB/Images/all_fish_hist.png", width = 24, height = 12)
 
 ```
