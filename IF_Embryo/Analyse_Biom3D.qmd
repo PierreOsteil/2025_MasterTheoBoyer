@@ -1,0 +1,27 @@
+# load packages
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+# load data
+```{r}
+path <- "IF_Embryo/"
+imageName <- "the results.csv"
+
+data <- read.csv(paste0(path, imageName), sep=",", h = T) 
+data <- data |>  mutate("LEFTY" = mean(fish.in.nuclei, fish.in.cyto))
+
+ggscatter(data, "Z", "fish.in.cyto", yscale = "log10")
+ggscatter(data, "Z", "C4.in.nuclei", yscale = "log10")
+
+ggscatter(data, "fish.in.nuclei", "fish.in.cyto", yscale = "log10")
+cor(data$fish.in.nuclei, data$fish.in.cyto)
+
+ggscatter(data, "C2.in.nuclei", "C4.in.nuclei", yscale = "log10")
+ggscatter(data, "C2.in.nuclei", "fish.in.cyto", yscale = "log10")
+ggscatter(data, "C4.in.nuclei", "fish.in.cyto", yscale = "log10")
+
+
+```

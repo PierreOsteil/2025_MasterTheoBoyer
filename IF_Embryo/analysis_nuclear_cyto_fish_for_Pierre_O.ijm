@@ -1,3 +1,5 @@
+//from Hervé Aléguot
+
 //Create a mask from 3D ROIs, it needs a specific naming of ROIs to work
 n=roiManager("count");
 if (n>0) {
