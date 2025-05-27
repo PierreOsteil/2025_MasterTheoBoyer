@@ -5,23 +5,75 @@ library(tidyverse)
 library(ggpubr)
 ```
 
-# load data
+# Analyse position
 ```{r}
-path <- "IF_Embryo/"
-imageName <- "the results.csv"
 
-data <- read.csv(paste0(path, imageName), sep=",", h = T) 
-data <- data |>  mutate("LEFTY" = mean(fish.in.nuclei, fish.in.cyto))
+data <- read.csv("IF_Embryo/2025-05-20_00-17-30_the results.csv", sep="\t", h = T) |> 
+    filter(!(Image %in% c(1406543, 1406533)))
 
-ggscatter(data, "Z", "fish.in.cyto", yscale = "log10")
-ggscatter(data, "Z", "C4.in.nuclei", yscale = "log10")
 
-ggscatter(data, "fish.in.nuclei", "fish.in.cyto", yscale = "log10")
-cor(data$fish.in.nuclei, data$fish.in.cyto)
+head(data)
 
-ggscatter(data, "C2.in.nuclei", "C4.in.nuclei", yscale = "log10")
-ggscatter(data, "C2.in.nuclei", "fish.in.cyto", yscale = "log10")
-ggscatter(data, "C4.in.nuclei", "fish.in.cyto", yscale = "log10")
+ggscatter(data, "Z", "fish_in_cyto", yscale = "log10")
+ggscatter(data, "Z", "C4_in_nuclei", yscale = "log10")
+ggscatter(data, "Z", "C2_in_nuclei", yscale = "log10")
 
+
+ggscatter(data, "fish_in_nuclei", "fish_in_cyto", yscale = "log10")
+cor(data$fish_in_nuclei, data$fish_in_cyto)
+
+ggscatter(data, "C2_in_nuclei", "C4_in_nuclei", yscale = "log10")
+
+
+coord <- data |> 
+    filter(C4_in_nuclei>= 30) |> # GATA6+ = PrE cells
+    select(X, Y , Z, Label, Image, fish_in_cyto, C4_in_nuclei) 
+    
+PCA <- prcomp(coord[,1:3])
+
+toplot <- cbind.data.frame(coord, as.data.frame(PCA$x))
+
+ggscatter(toplot, "PC1", "PC2", col = "fish_in_cyto")+
+    scale_color_viridis_c(option = "magma", trans = "log") +   
+    facet_wrap(facets = "Image", scales = "free")
+ggsave("IF_Embryo/PCA.png", width = 12, height = 15)
+ggscatter(toplot, "PC1", "PC2", col = "fish_in_cyto")+
+    scale_color_viridis_c(option = "magma", trans = "log")
+ggsave("IF_Embryo/PCA2.png", width = 5, height = 5)
+ggscatter(toplot, "PC1", "PC2", col = "Y")+
+    scale_color_viridis_c(option = "magma", trans = "log")
+ggsave("IF_Embryo/PCA3.png", width = 5, height = 5)
+
+
+ggscatter(toplot, "X", "Z", col = "fish_in_cyto")+
+    scale_color_viridis_c(option = "magma", trans = "log" )+ 
+    facet_wrap(facets = "Image", scales = "free")
+ggsave("IF_Embryo/XY.png", width = 12, height = 15)
+
+ggscatter(toplot, "X", "Z", col = "fish_in_cyto")+
+    scale_color_viridis_c(option = "magma", trans = "log" )
+ggsave("IF_Embryo/XY2.png", width = 5, height = 5)
+
+
+
+
+
+```
+
+# Analyse expression
+
+```{r}
+
+data_count <- data |> group_by(Image) |> count()
+data <- merge(data, data_count, by = "Image")
+
+ggviolin(data, "n" ,"fish_in_cyto")
+
+
+data_count_PrE <- data |> filter(C4_in_nuclei>= 25) |> group_by(Image) |> count()
+data_PrE <- merge(data, data_count_PrE, by = "Image") |> filter(C4_in_nuclei>= 25)
+
+ggviolin(data, "n.y" ,"fish_in_cyto")
+ggboxplot(data_PrE, "n.x" ,"fish_in_cyto", yscale = "log10", add= c("jitter"))
 
 ```
