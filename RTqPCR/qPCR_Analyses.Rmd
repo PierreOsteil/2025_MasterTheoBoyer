@@ -1,0 +1,264 @@
+---
+  title: "Data RTqPCR Théo"
+format : html
+date : 2025.03.03
+author: Pierre Osteil
+editor: visual
+warning: FALSE
+toc: true
+---
+  
+  # Importer les data
+```{r}
+library(readxl)
+library(tidyverse)
+library(ggpubr)
+install.packages("showtext")
+library(showtext)
+showtext_auto()
+
+files_list <- list.files("./data/")
+data <- data.frame()
+
+for (i in 1:length(files_list)) {
+  temp <- read_excel(paste0("./data/", files_list[i])) |> filter(!(Condition == "Water"))
+  data <- rbind(data, temp)
+}
+
+variab_names <- colnames(data)
+colnames(data)<- c("Date", "Puit", "Lignée", "Tri", "Condition", "Gène", "Ct", "Tm1", "Tm2")
+
+head(data)
+dim(data)
+class(data)
+```
+# filter data
+
+```{r}
+data_filt <- data |> 
+  filter(Ct <= 40 & Condition != "None")
+
+```
+
+# Calcul 2ddCt
+## calcul des médianes
+
+```{r}
+
+data_mediane <- data_filt |> 
+  group_by(Date, Lignée, Tri, Condition, Gène) |> 
+  mutate(medCt = median(Ct))
+
+head(data_mediane)
+
+```
+
+## Extraire les gènes de ménage
+On vérifie que les GDM sont bien corrélés et on en choisit un. 
+```{r}
+GDM <- c("Arbp", "Rps17")
+
+GDM_data <- data_mediane |> filter(Gène %in% GDM)
+
+ggviolin(GDM_data, x = "Gène", y = "Ct", add = "boxplot")+
+  geom_line(aes(group =  interaction(Lignée, Tri, Condition)), color = "black", size = 0.1)
+
+GDM_Arbp <- data_mediane |> filter(Gène == "Arbp") |> 
+  ungroup() |>
+  select(Date, Tri, Lignée, Condition, medCt) |>
+  distinct()
+
+colnames(GDM_Arbp)[colnames(GDM_Arbp) == "medCt"] <- "medCt_GDM"
+head(GDM_Arbp)
+```
+
+On ajoute les données de Arbp qui semble être le meilleur: moins de variabilité et Ct plus faible
+```{r}
+
+data_med_GDM <- inner_join(data_mediane, GDM_Arbp, by = c("Date", "Tri", "Lignée", "Condition"))
+head(data_med_GDM)
+colnames(data_med_GDM)
+
+```
+
+## calcul des dCt
+
+```{r}
+data_dCt <- data_med_GDM |> 
+  mutate(dCt = 2^(-(medCt - medCt_GDM))) |>
+  group_by(Gène, Lignée, Tri, Condition) |>
+  mutate(moy_dCt = mean(dCt), dCt_error = sd(dCt))
+
+head(data_dCt)
+dim(data_dCt)
+```
+
+
+# plot
+```{r, fig.width = 20, fig.height = 30}
+data_dCt$Condition_tri <- paste0(data_dCt$Condition, "_", data_dCt$Tri)
+data_dCt$lower = data_dCt$moy_dCt - data_dCt$dCt_error
+data_dCt$upper = data_dCt$moy_dCt + data_dCt$dCt_error
+
+# CHOIX DES GENES A PLOTTER (PAR GROUPES DE 9 GENES) - 23 GENES + Cer1 + Arbp + Rps17
+
+
+# N°1 Comparaison entre les conditions (-cAMP) et (+cAMP)
+
+#list_gene_toplot <- c("Nanog","Pou5f1", "Sox2", "Gata6", "Sox17", "Pth1r", "Fst", "Snai1", "Klf4")
+#list_gene_toplot <- c("Lefty1", "Lefty2", "Cerberus", "Pitx2", "Lhx1", "Pycr2", "Nodal", "Cripto", "Cryptic")
+#list_gene_toplot <- c("Foxh1", "Tcea3", "Gdf3", "Gsc", "Hhex", "Nanog", "Pou5f1", "Sox2", "Gata6")
+
+
+# N°2 Comparaison entre les conditions (-cAMP) et (-cAMP +10ng/mL ActA)
+
+#list_gene_toplot <- c("Nanog","Pou5f1", "Sox2", "Gata6", "Sox17", "Pth1r", "Fst", "Snai1", "Klf4")
+#list_gene_toplot <- c("Lefty1", "Lefty2", "Cerberus", "Pitx2", "Lhx1", "Pycr2", "Nodal", "Cripto", "Cryptic")
+#list_gene_toplot <- c("Foxh1", "Tcea3", "Gdf3", "Gsc", "Hhex", "Nanog", "Pou5f1", "Sox2", "Gata6")
+
+
+# N°3 Comparaison entre les conditions (-cAMP), (-cAMP +10ng/mL ActA), (-cAMP +20ng/mL ActA), (-cAMP +50ng/mL ActA)
+
+#list_gene_toplot <- c("Nanog","Pou5f1", "Sox2", "Gata6", "Sox17", "Pth1r", "Fst", "Snai1", "Klf4")
+#list_gene_toplot <- c("Lefty1", "Lefty2", "Cerberus", "Pitx2", "Lhx1", "Pycr2", "Nodal", "Cripto", "Cryptic")
+#list_gene_toplot <- c("Foxh1", "Tcea3", "Gdf3", "Gsc", "Hhex", "Nanog", "Pou5f1", "Sox2", "Gata6")
+
+
+
+# DEFINIR LES CONDITIONS EXPERIMENTALES QUE L'ON VEUT PLOTTER
+
+data_dCt_toplot <- data_dCt |> 
+  filter(!(Gène %in% GDM)) |>
+  #filter(Lignée == "Line T") |>     # ACTIVER CETTE LIGNE POUR L'ANALYSE N°3
+  
+  
+# N°1 Comparaison PE entre les conditions +cAMP et -cAMP
+#filter(Condition %in% c("(+cAMP)", "(-cAMP)")) |>
+#filter(Condition_tri %in% c("(+cAMP)_PDGFRa", "(-cAMP)_PDGFRa")) |>   # CALCUL FOLD CHANGE
+#filter(Condition_tri %in% c("(+cAMP)_PECAM1", "(-cAMP)_PECAM1")) |>   # CALCUL FOLD CHANGE
+  
+  
+# N°2 Comparaison entre les conditions (+cAMP), (-cAMP) et (-cAMP +10ng/mL ActA)
+#filter(Condition %in% c("(-cAMP)", "(-cAMP +10ng/mL ActA)")) |>
+#filter(Condition_tri %in% c("(-cAMP)_PDGFRa", "(-cAMP +10ng/mL ActA)_PDGFRa")) |>   # CALCUL FOLD CHANGE
+  
+  
+# N°3 Comparaison entre les conditions (-cAMP), (-cAMP +10ng/mL ActA), (-cAMP +20ng/mL ActA) et (-cAMP +50ng/mL ActA)
+#filter(Condition %in% c("(-cAMP)", "(-cAMP +10ng/mL ActA)", "(-cAMP +20ng/mL ActA)", "(-cAMP +50ng/mL ActA)")) |>
+#filter(Condition_tri %in% c("(-cAMP)_PDGFRa", "(-cAMP +10ng/mL ActA)_PDGFRa")) |>   # CALCUL FOLD CHANGE
+#filter(Condition_tri %in% c("(-cAMP)_PDGFRa", "(-cAMP +20ng/mL ActA)_PDGFRa")) |>   # CALCUL FOLD CHANGE
+#filter(Condition_tri %in% c("(-cAMP)_PDGFRa", "(-cAMP +50ng/mL ActA)_PDGFRa")) |>   # CALCUL FOLD CHANGE
+
+  
+  
+filter(Gène %in% list_gene_toplot)|>
+
+distinct(Condition_tri, Gène, Lignée, Date, .keep_all= T)
+
+
+
+# CALCULER LES FOLD CHANGE ENTRE DEUX CONDITIONS_TRI
+
+#FC <- data_dCt_toplot |>
+ #group_by(Gène, Condition_tri) |>
+ #summarise(moy_ech = mean(moy_dCt)) |>
+ #mutate(FC = moy_ech[1]/moy_ech[2]) |>
+ #ungroup()
+#FC
+
+
+
+# DEFINIR LES COMPARAISONS QUE L'ON VEUT PLOTTER
+
+
+# N°1
+#comparisons <- list(
+ #c("(+cAMP)_PDGFRa", "(-cAMP)_PDGFRa"),
+ #c("(+cAMP)_PECAM1", "(-cAMP)_PECAM1")
+#)
+
+
+# N°2
+#comparisons <- list(
+  #c("(-cAMP +10ng/mL ActA)_PDGFRa", "(-cAMP)_PDGFRa"),
+  #c("(-cAMP +10ng/mL ActA)_PECAM1", "(-cAMP)_PECAM1")
+#)
+
+
+# N°3
+#comparisons <- list(
+  #c("(-cAMP)_PDGFRa", "(-cAMP +10ng/mL ActA)_PDGFRa"),
+  #c("(-cAMP)_PDGFRa", "(-cAMP +20ng/mL ActA)_PDGFRa"),
+  #c("(-cAMP)_PDGFRa", "(-cAMP +50ng/mL ActA)_PDGFRa"),
+  #c("(-cAMP)_PECAM1", "(-cAMP +10ng/mL ActA)_PECAM1"),
+  #c("(-cAMP)_PECAM1", "(-cAMP +20ng/mL ActA)_PECAM1"),
+  #c("(-cAMP)_PECAM1","(-cAMP +50ng/mL ActA)_PECAM1")
+#)
+
+
+# BLOQUER L'ORDRE DANS LE PLOT
+
+#data_dCt_toplot$Condition_tri <- factor(
+  #data_dCt_toplot$Condition_tri,
+  #levels = c("(+cAMP)_PDGFRa", "(-cAMP)_PDGFRa", "(+cAMP)_PECAM1", "(-cAMP)_PECAM1")
+#)
+
+#data_dCt_toplot$Condition_tri <- factor(
+  #data_dCt_toplot$Condition_tri,
+  #levels = c("(-cAMP)_PDGFRa", "(-cAMP)_PECAM1", "(-cAMP +10ng/mL ActA)_PDGFRa", "(-cAMP +10ng/mL ActA)_PECAM1")
+#)
+
+#data_dCt_toplot$Condition_tri <- factor(
+  #data_dCt_toplot$Condition_tri,
+  #levels = c("(-cAMP)_PDGFRa", "(-cAMP +10ng/mL ActA)_PDGFRa", "(-cAMP +20ng/mL ActA)_PDGFRa", "(-cAMP +50ng/mL ActA)_PDGFRa", "(-cAMP)_PECAM1", "(-cAMP +10ng/mL ActA)_PECAM1", "(-cAMP +20ng/mL ActA)_PECAM1", "(-cAMP +50ng/mL ActA)_PECAM1")
+#)
+
+
+# ATTRIBUER DES COULEURS AUX DIFFERENTES CONDITIONS
+
+
+p1 <- ggboxplot(data_dCt_toplot, x = "Condition_tri", y = "dCt", fill = "Condition_tri", add= c("mean_sd", "jitter"), 
+
+#palette = c("(+cAMP)_PDGFRa"                = "#B5EAD7",  
+           #"(-cAMP)_PDGFRa"                 = "#E6CCFF",
+           #"(+cAMP)_PECAM1"                 = "#B5EAD7",
+           #"(-cAMP)_PECAM1"                 = "#E6CCFF"
+#)) +
+
+#palette = c("(-cAMP)_PDGFRa"                = "#E6CCFF",
+           #"(-cAMP +10ng/mL ActA)_PDGFRa"   = "#FFD8A8",
+           #"(-cAMP)_PECAM1"                 = "#E6CCFF",
+           #"(-cAMP +10ng/mL ActA)_PECAM1"   = "#FFD8A8"
+#)) +
+
+           
+#palette = c("(-cAMP)_PDGFRa"                = "#E6CCFF",
+           #"(-cAMP +10ng/mL ActA)_PDGFRa"   = "#FFD8A8",
+           #"(-cAMP +20ng/mL ActA)_PDGFRa"   = "orange",
+           #"(-cAMP +50ng/mL ActA)_PDGFRa"   = "orangered",
+           #"(-cAMP)_PECAM1"                 = "#E6CCFF",
+           #"(-cAMP +10ng/mL ActA)_PECAM1"   = "#FFD8A8",
+           #"(-cAMP +20ng/mL ActA)_PECAM1"   = "orange",
+           #"(-cAMP +50ng/mL ActA)_PECAM1"   = "orangered"
+#)) +
+  
+  stat_compare_means(comparisons = comparisons, method = "t.test", size = 3.5, face = "bold") +
+  facet_wrap("Gène", scales = "free") +
+  theme_bw()+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  theme_bw(base_size = 14, base_family = "Roboto") +
+theme(
+  strip.background = element_rect(fill = "#e6f0fa", color = "black"),
+  axis.text.x = element_text(angle = 45, hjust = 1, size = 2, family = "Roboto"),
+  axis.text.y = element_text(size = 9, family = "Roboto", face = "bold"),
+  axis.title = element_text(size = 2, face = "bold", family = "Roboto"),
+  strip.text = element_text(size = 12, face = "bold.italic", family = "Roboto", margin = margin(t = 3, b = 3)),
+  legend.text = element_text(size = 10, face = "bold", family = "Roboto"),
+  legend.title = element_text(size = 8, face = "bold", family = "Roboto"))
+  
+p1
+ggsave("plot_dCt.pdf", p1, width = 11, height = 12)
+
+
+```
